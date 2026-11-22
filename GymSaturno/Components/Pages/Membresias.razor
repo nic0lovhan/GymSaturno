@@ -1,0 +1,85 @@
+﻿@page "/membresias"
+@rendermode InteractiveServer
+@inject IRepositorioGym Repo
+
+<PageTitle>Control de Membresías - Gym Saturno</PageTitle>
+
+<div class="container my-4">
+    <h2 class="mb-3">Control de Vigencia de Membresías</h2>
+
+    @* Botones de filtro rápido por estatus *@
+    <div class="btn-group mb-3">
+        <button class="btn @(filtro == "Todas" ? "btn-dark" : "btn-outline-dark")" @onclick='() => filtro = "Todas"'>
+            Todas (@membresias.Count)
+        </button>
+        <button class="btn @(filtro == "Activas" ? "btn-success" : "btn-outline-success")" @onclick='() => filtro = "Activas"'>
+            Activas (@membresias.Count(m => m.Estatus == "Activa"))
+        </button>
+        <button class="btn @(filtro == "Alertas" ? "btn-warning" : "btn-outline-warning")" @onclick='() => filtro = "Alertas"'>
+            Próximas a vencer / Vencidas (@membresias.Count(m => m.Estatus == "Vencida" || m.ProximaAVencer))
+        </button>
+    </div>
+
+    @* Tabla con ajuste de renglón en Nombre del Socio *@
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-nowrap">Número de Socio</th>
+                    <th style="min-width: 180px;">Nombre del Socio</th>
+                    <th class="text-nowrap">Plan</th>
+                    <th class="text-nowrap">Fecha Inicio</th>
+                    <th class="text-nowrap">Fecha Vencimiento</th>
+                    <th class="text-nowrap">Estatus Calculado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in MembresiasFiltradas)
+                {
+                    <tr>
+                        <td class="fw-bold text-nowrap">@m.Socio?.Matricula</td>
+                        <td class="text-break">@m.Socio?.NombreCompleto</td>
+                        <td class="text-nowrap">@m.PlanPago</td>
+                        <td class="text-nowrap">@m.FechaInicio.ToString("dd/MM/yyyy")</td>
+                        <td class="@(m.Estatus == "Vencida" || m.ProximaAVencer ? "text-danger fw-bold" : "") text-nowrap">
+                            @m.FechaVencimiento.ToString("dd/MM/yyyy")
+                        </td>
+                        <td class="text-nowrap">
+                            @if (m.Estatus == "Vencida")
+                            {
+                                <span class="badge bg-danger">Vencida</span>
+                            }
+                            else if (m.ProximaAVencer)
+                            {
+                                <span class="badge bg-warning text-dark">Próxima a vencer</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Activa</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<Membresia> membresias = new();
+    private string filtro = "Todas";
+
+    // Filtra la lista según el botón seleccionado
+    private List<Membresia> MembresiasFiltradas => filtro switch
+    {
+        "Activas" => membresias.Where(m => m.Estatus == "Activa").ToList(),
+        "Alertas" => membresias.Where(m => m.Estatus == "Vencida" || m.ProximaAVencer).ToList(),
+        _ => membresias
+    };
+
+    // Carga las membresías desde SQL Server al abrir la pantalla
+    protected override async Task OnInitializedAsync()
+    {
+        membresias = await Repo.GetMembresiasAsync();
+    }
+}

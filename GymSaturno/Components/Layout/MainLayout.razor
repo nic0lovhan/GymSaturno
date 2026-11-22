@@ -1,0 +1,21 @@
+﻿@inherits LayoutComponentBase
+
+<div class="page">
+    @* Menú lateral protegido para que nunca se aplaste ni se encime *@
+    <div class="sidebar" style="min-width: 250px; flex-shrink: 0; background-image: none; background-color: #212529;">
+        <NavMenu />
+    </div>
+
+    @* Contenedor principal con ancho controlado *@
+    <main style="min-width: 0; flex: 1; overflow-x: hidden;">
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ocurrió un error inesperado.
+    <a href="." class="reload">Recargar</a>
+    <span class="dismiss">🗙</span>
+</div>

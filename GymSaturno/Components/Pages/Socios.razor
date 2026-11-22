@@ -1,0 +1,173 @@
+﻿@page "/socios"
+@rendermode InteractiveServer
+@using GymSaturno.Data
+@using GymSaturno.Repositories
+@inject IRepositorioGym Repo
+
+<PageTitle>Gestión de Socios - Gym Saturno</PageTitle>
+
+<h3>Socios</h3>
+
+<EditForm Model="@socio" FormName="frmSocio" OnValidSubmit="Guardar">
+    <DataAnnotationsValidator />
+
+    @if (editando)
+    {
+        <div class="row mb-3">
+            <div class="col-md-2">
+                <label class="form-label">Número de Socio</label>
+            </div>
+            <div class="col-md-10">
+                <InputText class="form-control bg-light" @bind-Value="socio.Matricula" readonly />
+            </div>
+        </div>
+    }
+
+    <div class="row mb-3">
+        <div class="col-md-2">
+            <label class="form-label">Nombre</label>
+        </div>
+        <div class="col-md-10">
+            <InputText class="form-control" maxlength="80" @bind-Value="socio.NombreCompleto" />
+            <ValidationMessage For="@(() => socio.NombreCompleto)" />
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-2">
+            <label class="form-label">Teléfono</label>
+        </div>
+        <div class="col-md-10">
+            <InputText class="form-control" maxlength="10" @bind-Value="socio.Telefono" placeholder="Ej. 3121102233" />
+            <ValidationMessage For="@(() => socio.Telefono)" />
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-2">
+            <label class="form-label">Correo</label>
+        </div>
+        <div class="col-md-10">
+            <InputText class="form-control" maxlength="100" @bind-Value="socio.Correo" />
+            <ValidationMessage For="@(() => socio.Correo)" />
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-2">
+            <label class="form-label">Entrenador</label>
+        </div>
+        <div class="col-md-10">
+            <InputSelect class="form-select" @bind-Value="socio.EntrenadorId">
+                <option value="0">-- Selecciona un entrenador --</option>
+                @foreach (var ent in entrenadores)
+                {
+                    <option value="@ent.Id">@ent.CodigoEntrenador - @ent.NombreInstructor (@ent.Especialidad)</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="@(() => socio.EntrenadorId)" />
+        </div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">@(editando ? "Actualizar" : "Guardar")</button>
+    @if (editando)
+    {
+        <button class="btn btn-secondary ms-2" type="button" @onclick="Cancelar">Cancelar</button>
+    }
+</EditForm>
+
+<br />
+
+@if (socios.Count > 0)
+{
+    <div class="table-responsive">
+        <table class="table table-striped align-middle">
+            <thead>
+                <tr>
+                    <th class="text-nowrap">Número de Socio</th>
+                    <th>Nombre</th>
+                    <th class="text-nowrap">Teléfono</th>
+                    <th>Correo</th>
+                    <th>Entrenador</th>
+                    <th class="text-nowrap">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in socios)
+                {
+                    <tr>
+                        <td class="fw-bold text-nowrap">@s.Matricula</td>
+                        <td class="text-break">@s.NombreCompleto</td>
+                        <td class="text-nowrap">@s.Telefono</td>
+                        <td class="text-break">@s.Correo</td>
+                        <td class="text-break">@(s.Entrenador?.NombreInstructor ?? "Sin asignar")</td>
+                        <td class="text-nowrap">
+                            <button class="btn btn-sm btn-warning me-1" type="button" @onclick="() => Editar(s)">Editar</button>
+                            <button class="btn btn-sm btn-danger" type="button" @onclick="() => Eliminar(s.Id)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <p><em>No hay socios registrados.</em></p>
+}
+
+@code {
+    private Socio socio = new();
+    private List<Socio> socios = new();
+    private List<Entrenador> entrenadores = new();
+    private bool editando = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        socios = await Repo.GetSociosAsync();
+        entrenadores = await Repo.GetEntrenadoresAsync();
+    }
+
+    private async Task Guardar()
+    {
+        if (editando)
+        {
+            await Repo.ActualizarSocioAsync(socio);
+            editando = false;
+        }
+        else
+        {
+            await Repo.AgregarSocioAsync(socio);
+        }
+
+        socio = new();
+        socios = await Repo.GetSociosAsync();
+    }
+
+    private void Editar(Socio s)
+    {
+        editando = true;
+        socio = new Socio
+        {
+            Id = s.Id,
+            Matricula = s.Matricula,
+            NombreCompleto = s.NombreCompleto,
+            Telefono = s.Telefono,
+            Correo = s.Correo,
+            FechaInscripcion = s.FechaInscripcion,
+            EntrenadorId = s.EntrenadorId ?? 0
+        };
+    }
+
+    private void Cancelar()
+    {
+        editando = false;
+        socio = new();
+    }
+
+    private async Task Eliminar(int id)
+    {
+        await Repo.EliminarSocioAsync(id);
+        socios = await Repo.GetSociosAsync();
+    }
+}

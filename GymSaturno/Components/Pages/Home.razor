@@ -1,0 +1,330 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@inject IRepositorioGym Repo
+@inject AppDBContext Db
+@inject NavigationManager Nav
+
+<PageTitle>Panel Principal - Gym Saturno</PageTitle>
+
+<header class="bg-dark text-white text-center py-4 border-bottom border-warning border-5 shadow-sm rounded mb-4">
+    <h1 class="fw-bold">Gym Saturno - Sistema Centralizado</h1>
+    <p class="mb-1">Sucursal Colima | Panel de Administración Web</p>
+    <small class="text-warning">
+        Vista general de monitoreo: consulta aquí los datos guardados en tiempo real. Para registrar, modificar o eliminar información, utiliza los módulos del menú lateral.
+    </small>
+</header>
+
+<div class="container">
+    @if (cargando)
+    {
+        <div class="alert alert-info text-center">Cargando información desde SQL Server...</div>
+    }
+    else
+    {
+        @* SECCIÓN 1: Métricas de inscripción e ingresos diarios *@
+        <section id="modulo-socios" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Estado General de los Socios</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Métrica</th>
+                                    <th class="text-nowrap">Cantidad Actual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Total de Socios Registrados</td>
+                                    <td class="fw-bold text-primary text-nowrap">@socios.Count</td>
+                                </tr>
+                                <tr>
+                                    <td>Membresías Activas Vigentes</td>
+                                    <td class="fw-bold text-success text-nowrap">@membresias.Count(m => m.Estatus == "Activa")</td>
+                                </tr>
+                                <tr>
+                                    <td>Asistencias Registradas Hoy (@DateTime.Today.ToString("dd/MM/yyyy"))</td>
+                                    <td class="fw-bold text-nowrap">@asistencias.Count(a => a.FechaHora.Date == DateTime.Today)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 2: Alertas de vencimiento de membresías *@
+        <section id="modulo-membresias" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Alertas de Vencimiento de Membresías</h5>
+                    @if (!membresiasAlerta.Any())
+                    {
+                        <p class="text-muted fst-italic mb-0">No hay membresías vencidas o próximas a vencer en los próximos 7 días.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-nowrap">Número de Socio</th>
+                                        <th>Nombre del Socio</th>
+                                        <th>Plan de pago</th>
+                                        <th class="text-nowrap">Fecha de Vencimiento</th>
+                                        <th class="text-nowrap">Estatus</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var m in membresiasAlerta)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold text-nowrap">@m.Socio?.Matricula</td>
+                                            <td class="text-break">@m.Socio?.NombreCompleto</td>
+                                            <td>@m.PlanPago</td>
+                                            <td class="text-danger fw-bold text-nowrap">@m.FechaVencimiento.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-nowrap">
+                                                <span class="badge @(m.Estatus == "Activa" ? "bg-warning text-dark" : "bg-danger")">
+                                                    @(m.Estatus == "Activa" ? "Próxima a vencer" : "Vencida")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 3: Historial de pagos y saldos pendientes *@
+        <section id="modulo-pagos" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Historial de Pagos y Saldos Pendientes</h5>
+                    @if (!pagosPendientes.Any())
+                    {
+                        <div class="alert alert-success mb-0">Todos los socios están al corriente con sus pagos.</div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-nowrap">Número de Socio</th>
+                                        <th>Nombre del Socio</th>
+                                        <th class="text-nowrap">Monto Pendiente (MXN)</th>
+                                        <th class="text-nowrap">Fecha Límite</th>
+                                        <th class="text-nowrap">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in pagosPendientes)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold text-nowrap">@p.Socio?.Matricula</td>
+                                            <td class="text-break">@p.Socio?.NombreCompleto</td>
+                                            <td class="text-danger fw-bold text-nowrap">$@p.MontoPendiente.ToString("F2")</td>
+                                            <td class="text-nowrap">@p.FechaLimite.ToString("dd/MM/yyyy")</td>
+                                            <td class="text-nowrap">
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => IrARegistrarAbono(p.Id)">
+                                                    Ir a Pagar / Abonar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 4: Registro de asistencias *@
+        <section id="modulo-asistencias" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Registro de Asistencias</h5>
+                    @if (!asistencias.Any())
+                    {
+                        <p class="text-muted fst-italic mb-0">Aún no se han registrado entradas hoy.</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="text-nowrap">Hora</th>
+                                        <th>Socio</th>
+                                        <th class="text-nowrap">Estatus Membresía</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var a in asistencias.Take(5))
+                                    {
+                                        var ultimaMembresia = a.Socio?.Membresias.OrderByDescending(m => m.FechaVencimiento).FirstOrDefault();
+                                        string estatus = ultimaMembresia?.Estatus ?? "Sin Plan";
+                                        <tr>
+                                            <td class="text-nowrap">@a.FechaHora.ToString("dd/MM/yyyy hh:mm tt")</td>
+                                            <td class="text-break">@a.Socio?.NombreCompleto</td>
+                                            <td class="text-nowrap">
+                                                <span class="badge @(estatus == "Activa" ? "bg-success" : "bg-danger")">
+                                                    @estatus
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 5: Plantilla de entrenadores *@
+        <section id="modulo-entrenadores" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Plantilla de Entrenadores</h5>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Número de Entrenador</th>
+                                    <th>Instructor</th>
+                                    <th>Especialidad</th>
+                                    <th>Turno</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ent in entrenadores)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-nowrap">@ent.CodigoEntrenador</td>
+                                        <td class="text-break">@ent.NombreInstructor</td>
+                                        <td>@ent.Especialidad</td>
+                                        <td>@ent.Turno</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 5B: Plantilla de empleados *@
+        <section id="modulo-empleados" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Plantilla de Empleados</h5>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Número de Empleado</th>
+                                    <th>Empleado</th>
+                                    <th>Rol</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var emp in empleados)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-nowrap">@emp.CodigoEmpleado</td>
+                                        <td class="text-break">@emp.NombreEmpleado</td>
+                                        <td><span class="badge bg-secondary">@emp.Rol</span></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* SECCIÓN 6: Control de transacciones por empleado *@
+        <section id="modulo-ventas" class="mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Control de Transacciones por Empleado</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Folio</th>
+                                    <th class="text-nowrap">Número de Empleado</th>
+                                    <th>Empleado</th>
+                                    <th>Rol</th>
+                                    <th>Concepto / Acción</th>
+                                    <th class="text-nowrap">Monto</th>
+                                    <th class="text-nowrap">Fecha</th>
+                                    <th class="text-nowrap">Hora</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var t in pagos.Take(8))
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-nowrap">@t.Folio</td>
+                                        <td class="fw-bold text-nowrap">@t.Empleado?.CodigoEmpleado</td>
+                                        <td class="text-break">@t.Empleado?.NombreEmpleado</td>
+                                        <td><span class="badge bg-secondary">@t.Empleado?.Rol</span></td>
+                                        <td class="text-break">@t.Concepto - Socio @t.Socio?.Matricula</td>
+                                        <td class="text-success fw-bold text-nowrap">+$@t.MontoPagado.ToString("F2")</td>
+                                        <td class="text-nowrap">@t.FechaHoraTransaccion.ToString("dd/MM/yyyy")</td>
+                                        <td class="text-nowrap">@t.FechaHoraTransaccion.ToString("hh:mm tt")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+</div>
+
+<footer class="bg-dark text-white text-center py-4 border-top border-warning border-5 shadow-sm mt-5 rounded">
+    <p class="mb-0">Sistema de Gestión Interna - Gym Saturno.</p>
+</footer>
+
+@code {
+    private bool cargando = true;
+    private List<Socio> socios = new();
+    private List<Membresia> membresias = new();
+    private List<Pago> pagos = new();
+    private List<Asistencia> asistencias = new();
+    private List<Entrenador> entrenadores = new();
+    private List<Empleado> empleados = new();
+
+    private List<Membresia> membresiasAlerta =>
+        membresias.Where(m => m.Estatus == "Vencida" || m.ProximaAVencer).ToList();
+
+    private List<Pago> pagosPendientes =>
+        pagos.Where(p => p.MontoPendiente > 0).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        cargando = true;
+        socios = await Repo.GetSociosAsync();
+        membresias = await Repo.GetMembresiasAsync();
+        pagos = await Repo.GetPagosAsync();
+        asistencias = await Repo.GetAsistenciasAsync();
+        entrenadores = await Repo.GetEntrenadoresAsync();
+        empleados = await Db.Empleados.AsNoTracking().ToListAsync();
+        cargando = false;
+    }
+
+    private void IrARegistrarAbono(int pagoId)
+    {
+        Nav.NavigateTo($"/pagos/{pagoId}");
+    }
+}

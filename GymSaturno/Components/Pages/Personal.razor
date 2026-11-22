@@ -1,0 +1,167 @@
+﻿@page "/personal"
+@rendermode InteractiveServer
+@inject IRepositorioGym Repo
+
+<PageTitle>Staff y Entrenadores - Gym Saturno</PageTitle>
+
+<div class="container my-4">
+    <div class="row">
+        <!-- Tarjeta 1: Entrenadores -->
+        <div class="col-12 mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-header bg-dark text-white">Alta de Entrenadores</div>
+                <div class="card-body">
+                    <EditForm Model="@nuevoEntrenador" OnValidSubmit="GuardarEntrenador" FormName="frmEntrenador">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="col-md-5 mb-2">
+                                <label class="form-label">Nombre Instructor:</label>
+                                <InputText class="form-control" maxlength="80" @bind-Value="nuevoEntrenador.NombreInstructor" />
+                                <ValidationMessage For="@(() => nuevoEntrenador.NombreInstructor)" />
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label">Especialidad:</label>
+                                <InputSelect class="form-select" @bind-Value="nuevoEntrenador.Especialidad">
+                                    <option value="Musculación">Musculación</option>
+                                    <option value="Cardio">Cardio</option>
+                                    <option value="Funcional">Funcional</option>
+                                    <option value="Crossfit">Crossfit</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Turno:</label>
+                                <InputSelect class="form-select" @bind-Value="nuevoEntrenador.Turno">
+                                    <option value="Matutino">Matutino</option>
+                                    <option value="Vespertino">Vespertino</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Registrar Entrenador</button>
+                    </EditForm>
+
+                    <hr />
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Número de Entrenador</th>
+                                    <th>Nombre</th>
+                                    <th>Especialidad</th>
+                                    <th>Turno</th>
+                                    <th class="text-nowrap">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var e in entrenadores)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-nowrap">@e.CodigoEntrenador</td>
+                                        <td class="text-break">@e.NombreInstructor</td>
+                                        <td>@e.Especialidad</td>
+                                        <td>@e.Turno</td>
+                                        <td class="text-nowrap">
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => EliminarEntrenador(e.Id)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tarjeta 2: Empleados -->
+        <div class="col-12 mb-4">
+            <div class="card border-info shadow-sm">
+                <div class="card-header bg-dark text-white">Alta de Empleados (Caja/Admin)</div>
+                <div class="card-body">
+                    <EditForm Model="@nuevoEmpleado" OnValidSubmit="GuardarEmpleado" FormName="frmEmpleado">
+                        <DataAnnotationsValidator />
+                        <div class="row">
+                            <div class="col-md-8 mb-2">
+                                <label class="form-label">Nombre Empleado:</label>
+                                <InputText class="form-control" maxlength="80" @bind-Value="nuevoEmpleado.NombreEmpleado" />
+                                <ValidationMessage For="@(() => nuevoEmpleado.NombreEmpleado)" />
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Rol:</label>
+                                <InputSelect class="form-select" @bind-Value="nuevoEmpleado.Rol">
+                                    <option value="Recepción">Recepción</option>
+                                    <option value="Administrador">Administrador</option>
+                                </InputSelect>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success">Registrar Empleado</button>
+                    </EditForm>
+
+                    <hr />
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="text-nowrap">Número de Empleado</th>
+                                    <th>Empleado</th>
+                                    <th>Rol</th>
+                                    <th class="text-nowrap">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var emp in empleados)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-nowrap">@emp.CodigoEmpleado</td>
+                                        <td class="text-break">@emp.NombreEmpleado</td>
+                                        <td>@emp.Rol</td>
+                                        <td class="text-nowrap">
+                                            <button type="button" class="btn btn-sm btn-danger" @onclick="() => EliminarEmpleado(emp.Id)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Entrenador nuevoEntrenador = new();
+    private Empleado nuevoEmpleado = new();
+    private List<Entrenador> entrenadores = new();
+    private List<Empleado> empleados = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        entrenadores = await Repo.GetEntrenadoresAsync();
+        empleados = await Repo.GetEmpleadosAsync();
+    }
+
+    private async Task GuardarEntrenador()
+    {
+        await Repo.AgregarEntrenadorAsync(nuevoEntrenador);
+        nuevoEntrenador = new();
+        entrenadores = await Repo.GetEntrenadoresAsync();
+    }
+
+    private async Task EliminarEntrenador(int id)
+    {
+        await Repo.EliminarEntrenadorAsync(id);
+        entrenadores = await Repo.GetEntrenadoresAsync();
+    }
+
+    private async Task GuardarEmpleado()
+    {
+        await Repo.AgregarEmpleadoAsync(nuevoEmpleado);
+        nuevoEmpleado = new();
+        empleados = await Repo.GetEmpleadosAsync();
+    }
+
+    private async Task EliminarEmpleado(int id)
+    {
+        await Repo.EliminarEmpleadoAsync(id);
+        empleados = await Repo.GetEmpleadosAsync();
+    }
+}

@@ -1,0 +1,209 @@
+﻿@page "/ventas"
+@rendermode InteractiveServer
+@inject IRepositorioGym Repo
+
+<PageTitle>Control de Ventas - Gym Saturno</PageTitle>
+
+<div class="container my-4">
+    <h2 class="mb-3">Control de Ventas y Auditoría por Empleado</h2>
+
+    @* Formulario para registrar ventas de membresía *@
+    <div class="card border-info mb-4 shadow-sm">
+        <div class="card-header bg-dark text-white">Registrar Venta de Membresía</div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Empleado que atiende:</label>
+                    <select class="form-select" @bind="empleadoSeleccionadoId">
+                        <option value="0">-- Selecciona Empleado --</option>
+                        @foreach (var emp in empleados)
+                        {
+                            <option value="@emp.Id">@emp.CodigoEmpleado - @emp.NombreEmpleado (@emp.Rol)</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Socio Comprador:</label>
+                    <select class="form-select" @bind="socioSeleccionadoId">
+                        <option value="0">-- Selecciona Socio --</option>
+                        @foreach (var soc in socios)
+                        {
+                            <option value="@soc.Id">@soc.Matricula - @soc.NombreCompleto</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Plan de Membresía:</label>
+                    <select class="form-select" @bind="planSeleccionado" @bind:after="ActualizarCostoPlan">
+                        <option value="Mensual">Mensual ($450.00 MXN)</option>
+                        <option value="Trimestral">Trimestral ($1,200.00 MXN)</option>
+                        <option value="Anual">Anual ($3,500.00 MXN)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Costo Total del Plan (MXN):</label>
+                    <input type="text" class="form-control fw-bold" value="$@costoTotal.ToString("F2")" readonly />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Monto Abonado Hoy (Máx. $@costoTotal.ToString("F2")):</label>
+                    <input type="number" class="form-control" min="0" max="@costoTotal" @bind="montoAbonado" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Saldo Pendiente Calculado:</label>
+                    <input type="text" class="form-control fw-bold text-danger"
+                           value="$@SaldoPendienteCalculado.ToString("F2")" readonly />
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(mensajeError))
+            {
+                <div class="alert alert-danger">@mensajeError</div>
+            }
+            @if (!string.IsNullOrEmpty(mensajeExito))
+            {
+                <div class="alert alert-success">@mensajeExito</div>
+            }
+
+            <button class="btn btn-success" @onclick="ProcesarVenta">Registrar Venta y Generar Folio</button>
+        </div>
+    </div>
+
+    <h4>Bitácora de Transacciones por Empleado</h4>
+    @* Tabla ajustada: los códigos y montos no se parten (text-nowrap) y los nombres largos bajan de renglón (text-break) *@
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-nowrap">Folio</th>
+                    <th class="text-nowrap">Número de Empleado</th>
+                    <th style="min-width: 150px;">Empleado</th>
+                    <th class="text-nowrap">Rol</th>
+                    <th style="min-width: 160px;">Concepto / Acción</th>
+                    <th class="text-nowrap">Monto Cobrado</th>
+                    <th class="text-nowrap">Saldo Pendiente</th>
+                    <th class="text-nowrap">Fecha y Hora</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in pagos)
+                {
+                    <tr>
+                        <td class="fw-bold text-nowrap">@p.Folio</td>
+                        <td class="fw-bold text-nowrap">@p.Empleado?.CodigoEmpleado</td>
+                        <td class="text-break">@p.Empleado?.NombreEmpleado</td>
+                        <td class="text-nowrap"><span class="badge bg-secondary">@p.Empleado?.Rol</span></td>
+                        <td class="text-break">@p.Concepto - Socio @p.Socio?.Matricula</td>
+                        <td class="text-success fw-bold text-nowrap">+$@p.MontoPagado.ToString("F2")</td>
+                        <td class="@(p.MontoPendiente > 0 ? "text-danger fw-bold" : "text-muted") text-nowrap">
+                            $@p.MontoPendiente.ToString("F2")
+                        </td>
+                        <td class="text-nowrap">@p.FechaHoraTransaccion.ToString("dd/MM/yyyy hh:mm tt")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private List<Empleado> empleados = new();
+    private List<Socio> socios = new();
+    private List<Pago> pagos = new();
+
+    private int empleadoSeleccionadoId = 0;
+    private int socioSeleccionadoId = 0;
+    private string planSeleccionado = "Mensual";
+    private decimal costoTotal = 450m;
+    private decimal montoAbonado = 450m;
+
+    private string mensajeError = string.Empty;
+    private string mensajeExito = string.Empty;
+
+    private decimal SaldoPendienteCalculado => Math.Max(0, costoTotal - Math.Min(montoAbonado, costoTotal));
+
+    // Carga empleados, socios y transacciones al abrir la pantalla
+    protected override async Task OnInitializedAsync()
+    {
+        empleados = await Repo.GetEmpleadosAsync();
+        socios = await Repo.GetSociosAsync();
+        pagos = await Repo.GetPagosAsync();
+    }
+
+    // Actualiza el precio automático al cambiar el tipo de membresía
+    private void ActualizarCostoPlan()
+    {
+        costoTotal = planSeleccionado switch
+        {
+            "Mensual" => 450m,
+            "Trimestral" => 1200m,
+            "Anual" => 3500m,
+            _ => 450m
+        };
+        montoAbonado = costoTotal;
+        mensajeError = string.Empty;
+    }
+
+    // Valida los datos, registra la membresía y genera el folio consecutivo
+    private async Task ProcesarVenta()
+    {
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+
+        if (empleadoSeleccionadoId == 0 || socioSeleccionadoId == 0)
+        {
+            mensajeError = "Debes seleccionar el empleado que cobra y el socio que adquiere la membresía.";
+            return;
+        }
+
+        if (montoAbonado < 0)
+        {
+            mensajeError = "El monto abonado no puede ser negativo.";
+            return;
+        }
+
+        if (montoAbonado > costoTotal)
+        {
+            mensajeError = $"El monto abonado (${montoAbonado:F2}) no puede superar el costo total del plan (${costoTotal:F2}).";
+            return;
+        }
+
+        int meses = planSeleccionado switch
+        {
+            "Trimestral" => 3,
+            "Anual" => 12,
+            _ => 1
+        };
+
+        var nuevaMembresia = new Membresia
+        {
+            SocioId = socioSeleccionadoId,
+            EmpleadoId = empleadoSeleccionadoId,
+            PlanPago = planSeleccionado,
+            FechaInicio = DateTime.Today,
+            FechaVencimiento = DateTime.Today.AddMonths(meses)
+        };
+
+        decimal pendiente = costoTotal - montoAbonado;
+
+        var nuevoPago = new Pago
+        {
+            SocioId = socioSeleccionadoId,
+            EmpleadoId = empleadoSeleccionadoId,
+            Concepto = $"Venta Membresía {planSeleccionado}",
+            MontoPagado = montoAbonado,
+            MontoPendiente = pendiente,
+            FechaLimite = DateTime.Today.AddDays(15),
+            FechaHoraTransaccion = DateTime.Now
+        };
+
+        await Repo.RegistrarVentaMembresiaAsync(nuevaMembresia, nuevoPago);
+
+        mensajeExito = $"Venta registrada exitosamente con el folio {nuevoPago.Folio}.";
+        pagos = await Repo.GetPagosAsync();
+    }
+}

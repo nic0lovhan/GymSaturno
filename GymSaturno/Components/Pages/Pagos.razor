@@ -1,0 +1,179 @@
+﻿@page "/pagos"
+@page "/pagos/{PagoId:int?}"
+@rendermode InteractiveServer
+@inject IRepositorioGym Repo
+
+<PageTitle>Historial de Pagos - Gym Saturno</PageTitle>
+
+<div class="container my-4">
+    <h2 class="mb-3">Historial de Pagos y Abono a Saldos Pendientes</h2>
+
+    @* Panel para seleccionar un adeudo y registrar cuánto dinero abona el socio *@
+    <div class="card border-info mb-4 shadow-sm">
+        <div class="card-header bg-dark text-white">Registrar Abono o Liquidación de Saldo</div>
+        <div class="card-body">
+            @if (!pagosConAdeudo.Any())
+            {
+                <div class="alert alert-success mb-0">No existen saldos pendientes por cobrar en este momento.</div>
+            }
+            else
+            {
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Seleccionar Adeudo / Folio:</label>
+                        <select class="form-select" @bind="pagoSeleccionadoId" @bind:after="AlCambiarPagoSeleccionado">
+                            <option value="0">-- Selecciona un folio con adeudo --</option>
+                            @foreach (var p in pagosConAdeudo)
+                            {
+                                <option value="@p.Id">@p.Folio - @p.Socio?.NombreCompleto (Debe: $@p.MontoPendiente.ToString("F2"))</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Empleado que recibe el pago:</label>
+                        <select class="form-select" @bind="empleadoId">
+                            <option value="0">-- Selecciona Empleado --</option>
+                            @foreach (var emp in empleados)
+                            {
+                                <option value="@emp.Id">@emp.CodigoEmpleado - @emp.NombreEmpleado</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">
+                            Monto a Pagar (Máximo: $@(pagoActual?.MontoPendiente.ToString("F2") ?? "0.00")):
+                        </label>
+                        <input type="number" class="form-control" min="1"
+                               max="@(pagoActual?.MontoPendiente ?? 0)"
+                               @bind="montoAAbonar"
+                               disabled="@(pagoActual == null)" />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(mensajeError))
+                {
+                    <div class="alert alert-danger">@mensajeError</div>
+                }
+                @if (!string.IsNullOrEmpty(mensajeExito))
+                {
+                    <div class="alert alert-success">@mensajeExito</div>
+                }
+
+                <button class="btn btn-success" @onclick="GuardarAbono" disabled="@(pagoActual == null)">
+                    Guardar Pago y Registrar Fecha/Hora
+                </button>
+            }
+        </div>
+    </div>
+
+    <h4>Historial General de Pagos</h4>
+    @* Tabla con ajuste de texto largo en Nombre del Socio y Concepto *@
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-nowrap">Folio</th>
+                    <th class="text-nowrap">Número de Socio</th>
+                    <th style="min-width: 160px;">Nombre del Socio</th>
+                    <th style="min-width: 150px;">Concepto</th>
+                    <th class="text-nowrap">Total Pagado</th>
+                    <th class="text-nowrap">Saldo Pendiente</th>
+                    <th class="text-nowrap">Fecha Límite</th>
+                    <th class="text-nowrap">Último Movimiento</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in todosLosPagos)
+                {
+                    <tr>
+                        <td class="fw-bold text-nowrap">@p.Folio</td>
+                        <td class="fw-bold text-nowrap">@p.Socio?.Matricula</td>
+                        <td class="text-break">@p.Socio?.NombreCompleto</td>
+                        <td class="text-break">@p.Concepto</td>
+                        <td class="text-success fw-bold text-nowrap">$@p.MontoPagado.ToString("F2")</td>
+                        <td class="@(p.MontoPendiente > 0 ? "text-danger fw-bold" : "text-muted") text-nowrap">
+                            $@p.MontoPendiente.ToString("F2")
+                        </td>
+                        <td class="text-nowrap">@p.FechaLimite.ToString("dd/MM/yyyy")</td>
+                        <td class="text-nowrap">@p.FechaHoraTransaccion.ToString("dd/MM/yyyy hh:mm tt")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? PagoId { get; set; }
+
+    private List<Pago> todosLosPagos = new();
+    private List<Empleado> empleados = new();
+
+    private int pagoSeleccionadoId = 0;
+    private int empleadoId = 0;
+    private decimal montoAAbonar = 0;
+    private string mensajeError = string.Empty;
+    private string mensajeExito = string.Empty;
+
+    private List<Pago> pagosConAdeudo => todosLosPagos.Where(p => p.MontoPendiente > 0).ToList();
+    private Pago? pagoActual => pagosConAdeudo.FirstOrDefault(p => p.Id == pagoSeleccionadoId);
+
+    // Carga los pagos y empleados registrados en SQL Server al abrir la pantalla
+    protected override async Task OnInitializedAsync()
+    {
+        todosLosPagos = await Repo.GetPagosAsync();
+        empleados = await Repo.GetEmpleadosAsync();
+
+        // Si el usuario llegó desde el botón del Panel Principal, preselecciona ese adeudo
+        if (PagoId.HasValue && PagoId.Value > 0)
+        {
+            pagoSeleccionadoId = PagoId.Value;
+            AlCambiarPagoSeleccionado();
+        }
+    }
+
+    // Actualiza el monto sugerido a pagar cuando se elige otro folio
+    private void AlCambiarPagoSeleccionado()
+    {
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+        montoAAbonar = pagoActual?.MontoPendiente ?? 0;
+    }
+
+    // Valida el abono y actualiza el saldo en la base de datos
+    private async Task GuardarAbono()
+    {
+        mensajeError = string.Empty;
+        mensajeExito = string.Empty;
+
+        if (pagoActual == null)
+        {
+            mensajeError = "Selecciona un folio con saldo pendiente.";
+            return;
+        }
+        if (empleadoId == 0)
+        {
+            mensajeError = "Selecciona el empleado que está cobrando el abono.";
+            return;
+        }
+        if (montoAAbonar <= 0)
+        {
+            mensajeError = "El monto a pagar debe ser mayor a $0.00.";
+            return;
+        }
+        if (montoAAbonar > pagoActual.MontoPendiente)
+        {
+            mensajeError = $"No puedes cobrar más del saldo pendiente (${pagoActual.MontoPendiente:F2} MXN).";
+            return;
+        }
+
+        await Repo.RegistrarAbonoPagoAsync(pagoActual.Id, montoAAbonar, empleadoId);
+
+        mensajeExito = $"Pago de ${montoAAbonar:F2} registrado correctamente el {DateTime.Now:dd/MM/yyyy hh:mm tt}.";
+        todosLosPagos = await Repo.GetPagosAsync();
+        pagoSeleccionadoId = 0;
+        montoAAbonar = 0;
+    }
+}

@@ -1,0 +1,119 @@
+﻿@page "/asistencias"
+@rendermode InteractiveServer
+@inject IRepositorioGym Repo
+
+<PageTitle>Registro de Asistencias - Gym Saturno</PageTitle>
+
+<div class="container my-4">
+    <h2 class="mb-3">Bitácora Digital de Asistencias</h2>
+
+    <div class="card border-info mb-4 shadow-sm">
+        <div class="card-header bg-dark text-white">Control de Acceso en Recepción</div>
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label fw-bold">Seleccionar Socio que ingresa:</label>
+                    <select class="form-select" @bind="socioId">
+                        <option value="0">-- Selecciona un socio --</option>
+                        @foreach (var s in socios)
+                        {
+                            <option value="@s.Id">@s.Matricula - @s.NombreCompleto</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 mt-2">
+                    @* El botón permanece deshabilitado si el socio no tiene membresía activa *@
+                    <button class="btn btn-primary w-100" @onclick="RegistrarEntrada" disabled="@(!PuedeRegistrarEntrada)">
+                        Marcar Entrada Ahora
+                    </button>
+                </div>
+            </div>
+
+            @* Validación visual en tiempo real al elegir al socio *@
+            @if (socioSeleccionado != null)
+            {
+                <div class="mt-3">
+                    @if (TieneMembresiaActiva)
+                    {
+                        <div class="alert alert-success mb-0">
+                            <strong>Acceso Permitido:</strong> @socioSeleccionado.NombreCompleto cuenta con membresía <strong>Activa</strong> (Vence el @UltimaMembresia!.FechaVencimiento.ToString("dd/MM/yyyy")).
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger mb-0">
+                            <strong>Acceso Denegado:</strong> @socioSeleccionado.NombreCompleto <strong>no tiene una membresía activa</strong> (Estatus: @EstatusMembresiaSeleccionada). Debe renovar o adquirir un plan antes de registrar su asistencia.
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Tabla con ajuste de renglón en el nombre del socio *@
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th class="text-nowrap">Fecha</th>
+                    <th class="text-nowrap">Hora</th>
+                    <th class="text-nowrap">Número de Socio</th>
+                    <th style="min-width: 180px;">Socio</th>
+                    <th class="text-nowrap">Estatus de Membresía</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in asistencias)
+                {
+                    var planActual = a.Socio?.Membresias.OrderByDescending(m => m.FechaVencimiento).FirstOrDefault();
+                    string estatus = planActual?.Estatus ?? "Sin Plan";
+                    <tr>
+                        <td class="text-nowrap">@a.FechaHora.ToString("dd/MM/yyyy")</td>
+                        <td class="text-nowrap">@a.FechaHora.ToString("hh:mm tt")</td>
+                        <td class="fw-bold text-nowrap">@a.Socio?.Matricula</td>
+                        <td class="text-break">@a.Socio?.NombreCompleto</td>
+                        <td class="text-nowrap">
+                            <span class="badge @(estatus == "Activa" ? "bg-success" : "bg-danger")">
+                                @estatus
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    private int socioId = 0;
+    private List<Socio> socios = new();
+    private List<Asistencia> asistencias = new();
+
+    private Socio? socioSeleccionado => socios.FirstOrDefault(s => s.Id == socioId);
+    private Membresia? UltimaMembresia => socioSeleccionado?.Membresias.OrderByDescending(m => m.FechaVencimiento).FirstOrDefault();
+    private string EstatusMembresiaSeleccionada => UltimaMembresia?.Estatus ?? "Sin Plan";
+    private bool TieneMembresiaActiva => EstatusMembresiaSeleccionada == "Activa";
+    private bool PuedeRegistrarEntrada => socioSeleccionado != null && TieneMembresiaActiva;
+
+    // Carga los socios y el historial de asistencias al abrir la página
+    protected override async Task OnInitializedAsync()
+    {
+        socios = await Repo.GetSociosAsync();
+        asistencias = await Repo.GetAsistenciasAsync();
+    }
+
+    // Registra la asistencia con fecha y hora actual si el socio tiene plan activo
+    private async Task RegistrarEntrada()
+    {
+        if (PuedeRegistrarEntrada)
+        {
+            await Repo.RegistrarAsistenciaAsync(new Asistencia
+            {
+                SocioId = socioId,
+                FechaHora = DateTime.Now
+            });
+            socioId = 0;
+            asistencias = await Repo.GetAsistenciasAsync();
+        }
+    }
+}
