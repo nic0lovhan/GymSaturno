@@ -1,4 +1,5 @@
-﻿@page "/pagos"
+﻿@* Dos rutas posibles: /pagos normal o /pagos/5 cuando se recibe el ID de un adeudo *@
+@page "/pagos"
 @page "/pagos/{PagoId:int?}"
 @rendermode InteractiveServer
 @inject IRepositorioGym Repo
@@ -8,10 +9,11 @@
 <div class="container my-4">
     <h2 class="mb-3">Historial de Pagos y Abono a Saldos Pendientes</h2>
 
-    @* Panel para seleccionar un adeudo y registrar cuánto dinero abona el socio *@
+    @* Tarjeta para registrar abonos a deudas pendientes *@
     <div class="card border-info mb-4 shadow-sm">
         <div class="card-header bg-dark text-white">Registrar Abono o Liquidación de Saldo</div>
         <div class="card-body">
+            @* Si nadie debe dinero, muestra mensaje verde y oculta el formulario *@
             @if (!pagosConAdeudo.Any())
             {
                 <div class="alert alert-success mb-0">No existen saldos pendientes por cobrar en este momento.</div>
@@ -21,6 +23,7 @@
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Seleccionar Adeudo / Folio:</label>
+                        @* @bind guarda el Id elegido y @bind:after dispara AlCambiarPagoSeleccionado automáticamente *@
                         <select class="form-select" @bind="pagoSeleccionadoId" @bind:after="AlCambiarPagoSeleccionado">
                             <option value="0">-- Selecciona un folio con adeudo --</option>
                             @foreach (var p in pagosConAdeudo)
@@ -45,6 +48,7 @@
                         <label class="form-label fw-bold">
                             Monto a Pagar (Máximo: $@(pagoActual?.MontoPendiente.ToString("F2") ?? "0.00")):
                         </label>
+                        @* Input numérico cuyo límite máximo (max) es el saldo pendiente del folio elegido *@
                         <input type="number" class="form-control" min="1"
                                max="@(pagoActual?.MontoPendiente ?? 0)"
                                @bind="montoAAbonar"
@@ -52,6 +56,7 @@
                     </div>
                 </div>
 
+                @* Alertas dinámicas de validación o confirmación *@
                 @if (!string.IsNullOrEmpty(mensajeError))
                 {
                     <div class="alert alert-danger">@mensajeError</div>
@@ -69,7 +74,6 @@
     </div>
 
     <h4>Historial General de Pagos</h4>
-    @* Tabla con ajuste de texto largo en Nombre del Socio y Concepto *@
     <div class="table-responsive">
         <table class="table table-bordered table-hover align-middle">
             <thead class="table-dark">
@@ -85,6 +89,7 @@
                 </tr>
             </thead>
             <tbody>
+                @* Lista histórica completa de todos los pagos *@
                 @foreach (var p in todosLosPagos)
                 {
                     <tr>
@@ -106,27 +111,30 @@
 </div>
 
 @code {
+    // Parámetro opcional recibido por la URL (/pagos/{PagoId})
     [Parameter] public int? PagoId { get; set; }
 
     private List<Pago> todosLosPagos = new();
     private List<Empleado> empleados = new();
 
+    // Variables del formulario de abono
     private int pagoSeleccionadoId = 0;
     private int empleadoId = 0;
     private decimal montoAAbonar = 0;
     private string mensajeError = string.Empty;
     private string mensajeExito = string.Empty;
 
+    // Filtra solo los pagos con deuda pendiente
     private List<Pago> pagosConAdeudo => todosLosPagos.Where(p => p.MontoPendiente > 0).ToList();
+    // Busca el objeto Pago correspondiente al folio elegido
     private Pago? pagoActual => pagosConAdeudo.FirstOrDefault(p => p.Id == pagoSeleccionadoId);
 
-    // Carga los pagos y empleados registrados en SQL Server al abrir la pantalla
+    // Carga pagos y empleados al entrar; si viene un PagoId en la URL, lo preselecciona
     protected override async Task OnInitializedAsync()
     {
         todosLosPagos = await Repo.GetPagosAsync();
         empleados = await Repo.GetEmpleadosAsync();
 
-        // Si el usuario llegó desde el botón del Panel Principal, preselecciona ese adeudo
         if (PagoId.HasValue && PagoId.Value > 0)
         {
             pagoSeleccionadoId = PagoId.Value;
@@ -134,7 +142,7 @@
         }
     }
 
-    // Actualiza el monto sugerido a pagar cuando se elige otro folio
+    // Coloca automáticamente el saldo pendiente completo como monto sugerido a abonar
     private void AlCambiarPagoSeleccionado()
     {
         mensajeError = string.Empty;
@@ -142,7 +150,7 @@
         montoAAbonar = pagoActual?.MontoPendiente ?? 0;
     }
 
-    // Valida el abono y actualiza el saldo en la base de datos
+    // Valida reglas de cobro, guarda el abono en SQL Server y refresca la tabla
     private async Task GuardarAbono()
     {
         mensajeError = string.Empty;

@@ -1,4 +1,5 @@
-﻿@page "/socios"
+﻿@* Ruta de la página: /socios *@
+@page "/socios"
 @rendermode InteractiveServer
 @using GymSaturno.Data
 @using GymSaturno.Repositories
@@ -8,9 +9,11 @@
 
 <h3>Socios</h3>
 
+@* Formulario compartido para crear un socio nuevo o editar uno existente *@
 <EditForm Model="@socio" FormName="frmSocio" OnValidSubmit="Guardar">
     <DataAnnotationsValidator />
 
+    @* Muestra el código S-000001 bloqueado (readonly) únicamente cuando se está editando *@
     @if (editando)
     {
         <div class="row mb-3">
@@ -58,6 +61,7 @@
             <label class="form-label">Entrenador</label>
         </div>
         <div class="col-md-10">
+            @* Desplegable que llena los entrenadores disponibles desde SQL Server *@
             <InputSelect class="form-select" @bind-Value="socio.EntrenadorId">
                 <option value="0">-- Selecciona un entrenador --</option>
                 @foreach (var ent in entrenadores)
@@ -69,7 +73,9 @@
         </div>
     </div>
 
+    @* El texto del botón cambia dinámicamente entre "Actualizar" y "Guardar" *@
     <button class="btn btn-primary" type="submit">@(editando ? "Actualizar" : "Guardar")</button>
+    @* El botón Cancelar solo aparece en modo edición *@
     @if (editando)
     {
         <button class="btn btn-secondary ms-2" type="button" @onclick="Cancelar">Cancelar</button>
@@ -78,6 +84,7 @@
 
 <br />
 
+@* Si existen socios registrados, dibuja la tabla; si no, muestra un mensaje informativo *@
 @if (socios.Count > 0)
 {
     <div class="table-responsive">
@@ -117,17 +124,22 @@ else
 }
 
 @code {
+    // Objeto Socio vinculado a las cajas de texto del formulario
     private Socio socio = new();
+    // Listas para la tabla de socios y el selector de entrenadores
     private List<Socio> socios = new();
     private List<Entrenador> entrenadores = new();
+    // Bandera que indica si el formulario está en modo creación (false) o edición (true)
     private bool editando = false;
 
+    // Carga inicial de datos desde SQL Server
     protected override async Task OnInitializedAsync()
     {
         socios = await Repo.GetSociosAsync();
         entrenadores = await Repo.GetEntrenadoresAsync();
     }
 
+    // Decide si actualiza un socio existente o inserta uno nuevo en la base de datos
     private async Task Guardar()
     {
         if (editando)
@@ -140,10 +152,12 @@ else
             await Repo.AgregarSocioAsync(socio);
         }
 
+        // Reinicia el formulario y recarga la tabla
         socio = new();
         socios = await Repo.GetSociosAsync();
     }
 
+    // Activa el modo edición y copia los datos de la fila seleccionada al formulario
     private void Editar(Socio s)
     {
         editando = true;
@@ -159,12 +173,14 @@ else
         };
     }
 
+    // Sale del modo edición y limpia las cajas de texto
     private void Cancelar()
     {
         editando = false;
         socio = new();
     }
 
+    // Elimina al socio seleccionado por su Id y actualiza la tabla
     private async Task Eliminar(int id)
     {
         await Repo.EliminarSocioAsync(id);

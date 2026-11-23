@@ -1,22 +1,30 @@
-﻿<!DOCTYPE html>
+﻿@* Plantilla HTML principal que envuelve toda la aplicación Blazor *@
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
+    @* Configuración básica de caracteres, pantalla responsiva y ruta base *@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <ResourcePreloader />
+    @* Hojas de estilo CSS de Bootstrap y del proyecto *@
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["GymSaturno.styles.css"]" />
     <ImportMap />
+    @* Ícono de la pestaña del navegador *@
     <link rel="icon" type="link" href="https://i.ibb.co/F4QpHRXh/Chat-GPT-Image-Sep-17-2026-04-33-40-PM.png" />
+    @* Permite cambiar el título de cada página dinámicamente *@
     <HeadOutlet />
 </head>
 
 <body>
+    @* Carga el sistema de rutas para mostrar la página solicitada *@
     <Routes />
+    @* Aviso automático si se pierde la conexión con el servidor *@
     <ReconnectModal />
+    @* Archivo JavaScript de Blazor que mantiene viva la interactividad *@
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿// Archivo generado automáticamente por Entity Framework al ejecutar: Add-Migration InicialGymSaturno
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,11 +7,14 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace GymSaturno.Migrations
 {
     /// <inheritdoc />
+    // Clase parcial que contiene las instrucciones SQL para construir o deshacer la base de datos
     public partial class InicialGymSaturno : Migration
     {
         /// <inheritdoc />
+        // Método Up: se ejecuta con Update-Database para crear todas las tablas y relaciones en SQL Server
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Crea la tabla Empleados con Id autoincremental (Identity 1,1) y llave primaria
             migrationBuilder.CreateTable(
                 name: "Empleados",
                 columns: table => new
@@ -26,6 +30,7 @@ namespace GymSaturno.Migrations
                     table.PrimaryKey("PK_Empleados", x => x.Id);
                 });
 
+            // Crea la tabla Entrenadores con su llave primaria PK_Entrenadores
             migrationBuilder.CreateTable(
                 name: "Entrenadores",
                 columns: table => new
@@ -42,6 +47,7 @@ namespace GymSaturno.Migrations
                     table.PrimaryKey("PK_Entrenadores", x => x.Id);
                 });
 
+            // Crea la tabla Socios y la enlaza con Entrenadores; si se borra el entrenador, EntrenadorId pasa a NULL
             migrationBuilder.CreateTable(
                 name: "Socios",
                 columns: table => new
@@ -66,6 +72,7 @@ namespace GymSaturno.Migrations
                         onDelete: ReferentialAction.SetNull);
                 });
 
+            // Crea la tabla Asistencias enlazada al SocioId
             migrationBuilder.CreateTable(
                 name: "Asistencias",
                 columns: table => new
@@ -86,6 +93,7 @@ namespace GymSaturno.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            // Crea la tabla Membresias enlazada a Empleados y Socios (Restrict evita borrados en cascada conflictivos)
             migrationBuilder.CreateTable(
                 name: "Membresias",
                 columns: table => new
@@ -115,6 +123,7 @@ namespace GymSaturno.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            // Crea la tabla Pagos con montos decimales (18,2) y llaves foráneas a Empleados y Socios
             migrationBuilder.CreateTable(
                 name: "Pagos",
                 columns: table => new
@@ -147,6 +156,7 @@ namespace GymSaturno.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
+            // Crea índices en las llaves foráneas para acelerar las consultas y búsquedas en SQL Server
             migrationBuilder.CreateIndex(
                 name: "IX_Asistencias_SocioId",
                 table: "Asistencias",
@@ -179,6 +189,7 @@ namespace GymSaturno.Migrations
         }
 
         /// <inheritdoc />
+        // Método Down: elimina todas las tablas si en algún momento se decide revertir esta migración
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

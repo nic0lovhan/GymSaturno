@@ -1,22 +1,26 @@
-﻿@* Barra superior de marca en el menú lateral *@
+﻿@* Barra superior del menú lateral con el nombre y logotipo del gimnasio *@
 <div class="top-row ps-3 navbar navbar-dark bg-dark border-bottom border-warning border-3">
     <div class="container-fluid">
+        @* Enlace hacia la ruta raíz ("") *@
         <a class="navbar-brand fw-bold text-warning" href="">🪐 Gym Saturno</a>
     </div>
 </div>
 
+@* Botón hamburguesa oculto para desplegar el menú en pantallas pequeñas o celulares *@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
+@* Contenedor desplazable de enlaces; cierra el menú móvil automáticamente al hacer clic *@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    @* Columna vertical de navegación *@
     <nav class="nav flex-column">
-        @* Enlace al Panel Principal de Visualización *@
+        @* Enlace al Panel Principal; Match.All ilumina el botón solo cuando la URL es exactamente "/" *@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Panel Principal
             </NavLink>
         </div>
 
-        @* Los 6 Módulos Operativos (CRUD) *@
+        @* Enlaces NavLink hacia cada uno de los 6 módulos operativos del sistema *@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="socios">
                 <span class="bi bi-people-fill" aria-hidden="true"></span> Gestión de Socios

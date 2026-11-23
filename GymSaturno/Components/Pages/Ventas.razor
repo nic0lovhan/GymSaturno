@@ -1,21 +1,27 @@
-﻿@page "/ventas"
+﻿@* Ruta de esta página en el navegador (/ventas) *@
+@page "/ventas"
+@* Activa la interactividad para que funcionen botones y listas sin recargar *@
 @rendermode InteractiveServer
+@* Conecta esta vista con el repositorio para consultar y guardar datos *@
 @inject IRepositorioGym Repo
 
+@* Título de la pestaña del navegador *@
 <PageTitle>Control de Ventas - Gym Saturno</PageTitle>
 
 <div class="container my-4">
     <h2 class="mb-3">Control de Ventas y Auditoría por Empleado</h2>
 
-    @* Formulario para registrar ventas de membresía *@
+    @* Tarjeta con el formulario para registrar una venta nueva *@
     <div class="card border-info mb-4 shadow-sm">
         <div class="card-header bg-dark text-white">Registrar Venta de Membresía</div>
         <div class="card-body">
             <div class="row mb-3">
+                @* Lista desplegable para elegir al empleado y guardar su ID en empleadoSeleccionadoId *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Empleado que atiende:</label>
                     <select class="form-select" @bind="empleadoSeleccionadoId">
                         <option value="0">-- Selecciona Empleado --</option>
+                        @* Recorre la lista empleados y crea una opción por cada uno *@
                         @foreach (var emp in empleados)
                         {
                             <option value="@emp.Id">@emp.CodigoEmpleado - @emp.NombreEmpleado (@emp.Rol)</option>
@@ -23,10 +29,12 @@
                     </select>
                 </div>
 
+                @* Lista desplegable para elegir al socio comprador y guardar su ID en socioSeleccionadoId *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Socio Comprador:</label>
                     <select class="form-select" @bind="socioSeleccionadoId">
                         <option value="0">-- Selecciona Socio --</option>
+                        @* Recorre la lista socios y muestra su matrícula y nombre *@
                         @foreach (var soc in socios)
                         {
                             <option value="@soc.Id">@soc.Matricula - @soc.NombreCompleto</option>
@@ -34,6 +42,7 @@
                     </select>
                 </div>
 
+                @* Lista de planes; al cambiar de opción ejecuta ActualizarCostoPlan *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Plan de Membresía:</label>
                     <select class="form-select" @bind="planSeleccionado" @bind:after="ActualizarCostoPlan">
@@ -45,14 +54,17 @@
             </div>
 
             <div class="row mb-3">
+                @* Muestra el precio total del plan (solo lectura) *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Costo Total del Plan (MXN):</label>
                     <input type="text" class="form-control fw-bold" value="$@costoTotal.ToString("F2")" readonly />
                 </div>
+                @* Campo numérico donde se escribe cuánto dinero paga hoy el socio *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Monto Abonado Hoy (Máx. $@costoTotal.ToString("F2")):</label>
                     <input type="number" class="form-control" min="0" max="@costoTotal" @bind="montoAbonado" />
                 </div>
+                @* Muestra automáticamente cuánto queda debiendo el socio *@
                 <div class="col-md-4">
                     <label class="form-label fw-bold">Saldo Pendiente Calculado:</label>
                     <input type="text" class="form-control fw-bold text-danger"
@@ -60,15 +72,18 @@
                 </div>
             </div>
 
+            @* Muestra alerta roja si hubo algún error de validación *@
             @if (!string.IsNullOrEmpty(mensajeError))
             {
                 <div class="alert alert-danger">@mensajeError</div>
             }
+            @* Muestra alerta verde cuando la venta se guarda correctamente *@
             @if (!string.IsNullOrEmpty(mensajeExito))
             {
                 <div class="alert alert-success">@mensajeExito</div>
             }
 
+            @* Botón que ejecuta el método ProcesarVenta al darle clic *@
             <button class="btn btn-success" @onclick="ProcesarVenta">Registrar Venta y Generar Folio</button>
         </div>
     </div>
@@ -90,6 +105,7 @@
                 </tr>
             </thead>
             <tbody>
+                @* Recorre cada pago guardado en la lista pagos para dibujar su fila *@
                 @foreach (var p in pagos)
                 {
                     <tr>
@@ -99,6 +115,7 @@
                         <td class="text-nowrap"><span class="badge bg-secondary">@p.Empleado?.Rol</span></td>
                         <td class="text-break">@p.Concepto - Socio @p.Socio?.Matricula</td>
                         <td class="text-success fw-bold text-nowrap">+$@p.MontoPagado.ToString("F2")</td>
+                        @* Si hay deuda mayor a 0 la pinta en rojo, si no, en gris *@
                         <td class="@(p.MontoPendiente > 0 ? "text-danger fw-bold" : "text-muted") text-nowrap">
                             $@p.MontoPendiente.ToString("F2")
                         </td>
@@ -111,22 +128,26 @@
 </div>
 
 @code {
+    // Listas para guardar los empleados, socios y pagos traídos de SQL Server
     private List<Empleado> empleados = new();
     private List<Socio> socios = new();
     private List<Pago> pagos = new();
 
+    // Variables vinculadas a los campos del formulario
     private int empleadoSeleccionadoId = 0;
     private int socioSeleccionadoId = 0;
     private string planSeleccionado = "Mensual";
     private decimal costoTotal = 450m;
     private decimal montoAbonado = 450m;
 
+    // Variables de texto para mostrar avisos de error o éxito
     private string mensajeError = string.Empty;
     private string mensajeExito = string.Empty;
 
+    // Variable calculada que obtiene la diferencia entre el costo y lo abonado sin dar negativos
     private decimal SaldoPendienteCalculado => Math.Max(0, costoTotal - Math.Min(montoAbonado, costoTotal));
 
-    // Carga empleados, socios y transacciones al abrir la pantalla
+    // Método que corre automáticamente al abrir la página para cargar los datos iniciales
     protected override async Task OnInitializedAsync()
     {
         empleados = await Repo.GetEmpleadosAsync();
@@ -134,7 +155,7 @@
         pagos = await Repo.GetPagosAsync();
     }
 
-    // Actualiza el precio automático al cambiar el tipo de membresía
+    // Método que cambia el precio total y el abono sugerido según el plan elegido
     private void ActualizarCostoPlan()
     {
         costoTotal = planSeleccionado switch
@@ -148,30 +169,34 @@
         mensajeError = string.Empty;
     }
 
-    // Valida los datos, registra la membresía y genera el folio consecutivo
+    // Método que valida los datos, crea la membresía y el pago, y los guarda en la base de datos
     private async Task ProcesarVenta()
     {
         mensajeError = string.Empty;
         mensajeExito = string.Empty;
 
+        // Valida que se haya elegido empleado y socio
         if (empleadoSeleccionadoId == 0 || socioSeleccionadoId == 0)
         {
             mensajeError = "Debes seleccionar el empleado que cobra y el socio que adquiere la membresía.";
             return;
         }
 
+        // Valida que el abono no sea menor a cero
         if (montoAbonado < 0)
         {
             mensajeError = "El monto abonado no puede ser negativo.";
             return;
         }
 
+        // Valida que el abono no sea mayor al precio del plan
         if (montoAbonado > costoTotal)
         {
             mensajeError = $"El monto abonado (${montoAbonado:F2}) no puede superar el costo total del plan (${costoTotal:F2}).";
             return;
         }
 
+        // Calcula cuántos meses dura el plan seleccionado
         int meses = planSeleccionado switch
         {
             "Trimestral" => 3,
@@ -179,6 +204,7 @@
             _ => 1
         };
 
+        // Crea el objeto de la nueva membresía con sus fechas de inicio y fin
         var nuevaMembresia = new Membresia
         {
             SocioId = socioSeleccionadoId,
@@ -188,8 +214,10 @@
             FechaVencimiento = DateTime.Today.AddMonths(meses)
         };
 
+        // Calcula el saldo que queda pendiente por pagar
         decimal pendiente = costoTotal - montoAbonado;
 
+        // Crea el objeto del pago con el abono inicial y 15 días de límite para liquidar
         var nuevoPago = new Pago
         {
             SocioId = socioSeleccionadoId,
@@ -201,8 +229,10 @@
             FechaHoraTransaccion = DateTime.Now
         };
 
+        // Guarda ambos registros en la base de datos y genera el folio
         await Repo.RegistrarVentaMembresiaAsync(nuevaMembresia, nuevoPago);
 
+        // Muestra el folio generado y actualiza la tabla de ventas
         mensajeExito = $"Venta registrada exitosamente con el folio {nuevoPago.Folio}.";
         pagos = await Repo.GetPagosAsync();
     }

@@ -1,19 +1,25 @@
-﻿@inherits LayoutComponentBase
+﻿@* Indica que este archivo es la plantilla maestra que envuelve a todas las páginas *@
+@inherits LayoutComponentBase
 
+@* Contenedor general que divide la pantalla en menú lateral y área de contenido *@
 <div class="page">
-    @* Menú lateral protegido para que nunca se aplaste ni se encime *@
+    @* Menú lateral con ancho fijo de 250px, sin degradado morado y color oscuro #212529 *@
     <div class="sidebar" style="min-width: 250px; flex-shrink: 0; background-image: none; background-color: #212529;">
+        @* Renderiza el componente del menú de navegación *@
         <NavMenu />
     </div>
 
-    @* Contenedor principal con ancho controlado *@
+
+    @* Contenedor principal derecho que ocupa el espacio sobrante sin desbordarse *@
     <main style="min-width: 0; flex: 1; overflow-x: hidden;">
+        @* Área interior donde Blazor inyecta dinámicamente la página activa (@Body) *@
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
 
+@* Barra oculta de Blazor que solo aparece si ocurre un fallo crítico en el servidor *@
 <div id="blazor-error-ui" data-nosnippet>
     Ocurrió un error inesperado.
     <a href="." class="reload">Recargar</a>

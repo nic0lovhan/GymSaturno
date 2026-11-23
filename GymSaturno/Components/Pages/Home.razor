@@ -1,12 +1,17 @@
-﻿@page "/"
+﻿@* Ruta raíz ("/"): es la página de inicio del sistema *@
+@page "/"
+@* Activa la interactividad en tiempo real *@
 @rendermode InteractiveServer
+@* Importa Entity Framework para poder usar .AsNoTracking() y .ToListAsync() *@
 @using Microsoft.EntityFrameworkCore
+@* Inyecta el repositorio, el contexto de BD y el navegador entre páginas *@
 @inject IRepositorioGym Repo
 @inject AppDBContext Db
 @inject NavigationManager Nav
 
 <PageTitle>Panel Principal - Gym Saturno</PageTitle>
 
+@* Encabezado principal del dashboard *@
 <header class="bg-dark text-white text-center py-4 border-bottom border-warning border-5 shadow-sm rounded mb-4">
     <h1 class="fw-bold">Gym Saturno - Sistema Centralizado</h1>
     <p class="mb-1">Sucursal Colima | Panel de Administración Web</p>
@@ -16,13 +21,14 @@
 </header>
 
 <div class="container">
+    @* Muestra un aviso mientras terminan las consultas iniciales a SQL Server *@
     @if (cargando)
     {
         <div class="alert alert-info text-center">Cargando información desde SQL Server...</div>
     }
     else
     {
-        @* SECCIÓN 1: Métricas de inscripción e ingresos diarios *@
+        @* SECCIÓN 1: Tabla resumen con contadores calculados usando LINQ *@
         <section id="modulo-socios" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -38,14 +44,17 @@
                             <tbody>
                                 <tr>
                                     <td>Total de Socios Registrados</td>
+                                    @* .Count devuelve el total de elementos en la lista socios *@
                                     <td class="fw-bold text-primary text-nowrap">@socios.Count</td>
                                 </tr>
                                 <tr>
                                     <td>Membresías Activas Vigentes</td>
+                                    @* Cuenta solo las membresías cuyo estatus sea "Activa" *@
                                     <td class="fw-bold text-success text-nowrap">@membresias.Count(m => m.Estatus == "Activa")</td>
                                 </tr>
                                 <tr>
                                     <td>Asistencias Registradas Hoy (@DateTime.Today.ToString("dd/MM/yyyy"))</td>
+                                    @* Cuenta las asistencias cuya fecha coincida con el día de hoy *@
                                     <td class="fw-bold text-nowrap">@asistencias.Count(a => a.FechaHora.Date == DateTime.Today)</td>
                                 </tr>
                             </tbody>
@@ -55,7 +64,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 2: Alertas de vencimiento de membresías *@
+        @* SECCIÓN 2: Muestra membresías vencidas o a menos de 7 días de vencer *@
         <section id="modulo-membresias" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -100,7 +109,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 3: Historial de pagos y saldos pendientes *@
+        @* SECCIÓN 3: Lista de socios con adeudos y acceso directo al módulo de pagos *@
         <section id="modulo-pagos" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -131,6 +140,7 @@
                                             <td class="text-danger fw-bold text-nowrap">$@p.MontoPendiente.ToString("F2")</td>
                                             <td class="text-nowrap">@p.FechaLimite.ToString("dd/MM/yyyy")</td>
                                             <td class="text-nowrap">
+                                                @* Envía el Id del pago al método IrARegistrarAbono *@
                                                 <button class="btn btn-sm btn-outline-primary" @onclick="() => IrARegistrarAbono(p.Id)">
                                                     Ir a Pagar / Abonar
                                                 </button>
@@ -145,7 +155,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 4: Registro de asistencias *@
+        @* SECCIÓN 4: Últimas 5 asistencias registradas (.Take(5)) *@
         <section id="modulo-asistencias" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -188,7 +198,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 5: Plantilla de entrenadores *@
+        @* SECCIÓN 5: Tabla de entrenadores registrados *@
         <section id="modulo-entrenadores" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -220,7 +230,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 5B: Plantilla de empleados *@
+        @* SECCIÓN 5B: Tabla de empleados de recepción/administración *@
         <section id="modulo-empleados" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -250,7 +260,7 @@
             </div>
         </section>
 
-        @* SECCIÓN 6: Control de transacciones por empleado *@
+        @* SECCIÓN 6: Últimas 8 transacciones cobradas por empleados (.Take(8)) *@
         <section id="modulo-ventas" class="mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-body">
@@ -292,12 +302,15 @@
     }
 </div>
 
+@* Pie de página fijo *@
 <footer class="bg-dark text-white text-center py-4 border-top border-warning border-5 shadow-sm mt-5 rounded">
     <p class="mb-0">Sistema de Gestión Interna - Gym Saturno.</p>
 </footer>
 
 @code {
+    // Bandera booleana para saber si siguen cargando los datos
     private bool cargando = true;
+    // Listas para almacenar todas las entidades del gimnasio
     private List<Socio> socios = new();
     private List<Membresia> membresias = new();
     private List<Pago> pagos = new();
@@ -305,12 +318,15 @@
     private List<Entrenador> entrenadores = new();
     private List<Empleado> empleados = new();
 
+    // Filtra con LINQ las membresías vencidas o próximas a vencer
     private List<Membresia> membresiasAlerta =>
         membresias.Where(m => m.Estatus == "Vencida" || m.ProximaAVencer).ToList();
 
+    // Filtra con LINQ únicamente los pagos que aún tienen deuda mayor a 0
     private List<Pago> pagosPendientes =>
         pagos.Where(p => p.MontoPendiente > 0).ToList();
 
+    // Carga todas las tablas desde SQL Server al iniciar el Panel Principal
     protected override async Task OnInitializedAsync()
     {
         cargando = true;
@@ -323,6 +339,7 @@
         cargando = false;
     }
 
+    // Redirige al usuario a /pagos pasando el ID del adeudo seleccionado
     private void IrARegistrarAbono(int pagoId)
     {
         Nav.NavigateTo($"/pagos/{pagoId}");

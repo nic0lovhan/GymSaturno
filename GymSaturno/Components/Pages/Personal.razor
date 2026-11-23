@@ -1,4 +1,5 @@
-﻿@page "/personal"
+﻿@* Ruta de la página: /personal *@
+@page "/personal"
 @rendermode InteractiveServer
 @inject IRepositorioGym Repo
 
@@ -6,12 +7,14 @@
 
 <div class="container my-4">
     <div class="row">
-        <!-- Tarjeta 1: Entrenadores -->
+        @* SECCIÓN 1: Formulario y tabla de Entrenadores *@
         <div class="col-12 mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-header bg-dark text-white">Alta de Entrenadores</div>
                 <div class="card-body">
+                    @* EditForm valida el objeto nuevoEntrenador antes de ejecutar GuardarEntrenador *@
                     <EditForm Model="@nuevoEntrenador" OnValidSubmit="GuardarEntrenador" FormName="frmEntrenador">
+                        @* Activa las reglas [Required] y [StringLength] definidas en la clase Entrenador *@
                         <DataAnnotationsValidator />
                         <div class="row">
                             <div class="col-md-5 mb-2">
@@ -71,7 +74,7 @@
             </div>
         </div>
 
-        <!-- Tarjeta 2: Empleados -->
+        @* SECCIÓN 2: Formulario y tabla de Empleados administrativos *@
         <div class="col-12 mb-4">
             <div class="card border-info shadow-sm">
                 <div class="card-header bg-dark text-white">Alta de Empleados (Caja/Admin)</div>
@@ -128,17 +131,21 @@
 </div>
 
 @code {
+    // Objetos temporales vinculados a cada formulario
     private Entrenador nuevoEntrenador = new();
     private Empleado nuevoEmpleado = new();
+    // Listas para mostrar los registros guardados en las tablas
     private List<Entrenador> entrenadores = new();
     private List<Empleado> empleados = new();
 
+    // Carga inicial de entrenadores y empleados desde SQL Server
     protected override async Task OnInitializedAsync()
     {
         entrenadores = await Repo.GetEntrenadoresAsync();
         empleados = await Repo.GetEmpleadosAsync();
     }
 
+    // Guarda el entrenador, limpia el formulario y recarga la tabla
     private async Task GuardarEntrenador()
     {
         await Repo.AgregarEntrenadorAsync(nuevoEntrenador);
@@ -146,12 +153,14 @@
         entrenadores = await Repo.GetEntrenadoresAsync();
     }
 
+    // Borra un entrenador por su Id y refresca la lista
     private async Task EliminarEntrenador(int id)
     {
         await Repo.EliminarEntrenadorAsync(id);
         entrenadores = await Repo.GetEntrenadoresAsync();
     }
 
+    // Guarda el empleado, limpia el formulario y recarga la tabla
     private async Task GuardarEmpleado()
     {
         await Repo.AgregarEmpleadoAsync(nuevoEmpleado);
@@ -159,6 +168,7 @@
         empleados = await Repo.GetEmpleadosAsync();
     }
 
+    // Borra un empleado por su Id y refresca la lista
     private async Task EliminarEmpleado(int id)
     {
         await Repo.EliminarEmpleadoAsync(id);

@@ -1,41 +1,49 @@
-﻿using GymSaturno.Data;
+﻿// Importa los modelos y Entity Framework Core para consultas SQL y métodos asíncronos
+using GymSaturno.Data;
 using Microsoft.EntityFrameworkCore;
-
+// implementacion de la interfaz IRepositorioGym para interactuar con la base de datos y las operaciones CRUD (crear,leer, actualizar y borrar) de socios, entrenadores, empleados, membresías, pagos y asistencias
+// contiene toda la lógica de negocio y las reglas de validación para garantizar la integridad de los datos y el correcto funcionamiento del sistema
 namespace GymSaturno.Repositories
 {
+    // Clase que implementa todos los métodos definidos en IRepositorioGym
     public class RepositorioGym : IRepositorioGym
     {
+        // Variable privada de solo lectura que guarda la conexión al contexto de base de datos
         private readonly AppDBContext _db;
 
+        // Constructor: recibe AppDBContext por inyección de dependencias
         public RepositorioGym(AppDBContext db)
         {
             _db = db;
         }
 
         // --- SOCIOS ---
+        // Consulta todos los socios incluyendo su entrenador y membresías (.Include), ordenados del más nuevo al más viejo
         public async Task<List<Socio>> GetSociosAsync()
         {
             return await _db.Socios
-                .AsNoTracking()
+                .AsNoTracking() // Lectura rápida sin rastreo en memoria para evitar bloqueos al editar
                 .Include(s => s.Entrenador)
                 .Include(s => s.Membresias)
                 .OrderByDescending(s => s.Id)
                 .ToListAsync();
         }
 
+        // Inserta un socio nuevo generando su código consecutivo S-000001
         public async Task AgregarSocioAsync(Socio socio)
         {
-            _db.ChangeTracker.Clear();
+            _db.ChangeTracker.Clear(); // Limpia objetos rastreados previos en memoria
 
             // Genera el Número de Socio consecutivo: S- + 6 dígitos (ej. S-000001)
             int ultimoId = await _db.Socios.AnyAsync() ? await _db.Socios.MaxAsync(s => s.Id) : 0;
             socio.Matricula = $"S-{(ultimoId + 1):D6}";
 
             _db.Socios.Add(socio);
-            await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync(); // Ejecuta el INSERT en SQL Server
             _db.ChangeTracker.Clear();
         }
 
+        // Busca al socio por su Id y actualiza sus datos sin tocar su Matrícula original
         public async Task ActualizarSocioAsync(Socio socio)
         {
             _db.ChangeTracker.Clear();
@@ -48,11 +56,12 @@ namespace GymSaturno.Repositories
                 existente.Correo = socio.Correo;
                 existente.EntrenadorId = socio.EntrenadorId;
 
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(); // Ejecuta el UPDATE en SQL Server
                 _db.ChangeTracker.Clear();
             }
         }
 
+        // Elimina un socio y limpia primero sus registros dependientes (asistencias, pagos y membresías)
         public async Task EliminarSocioAsync(int id)
         {
             _db.ChangeTracker.Clear();
@@ -74,9 +83,11 @@ namespace GymSaturno.Repositories
         }
 
         // --- ENTRENADORES Y EMPLEADOS ---
+        // Devuelve la lista de entrenadores sin rastreo en memoria
         public async Task<List<Entrenador>> GetEntrenadoresAsync() =>
             await _db.Entrenadores.AsNoTracking().ToListAsync();
 
+        // Guarda un entrenador nuevo asignándole su código consecutivo C-000001
         public async Task AgregarEntrenadorAsync(Entrenador entrenador)
         {
             _db.ChangeTracker.Clear();
@@ -90,6 +101,7 @@ namespace GymSaturno.Repositories
             _db.ChangeTracker.Clear();
         }
 
+        // Borra un entrenador y deja en null el EntrenadorId de los socios que tenía asignados
         public async Task EliminarEntrenadorAsync(int id)
         {
             _db.ChangeTracker.Clear();
@@ -111,9 +123,11 @@ namespace GymSaturno.Repositories
             }
         }
 
+        // Devuelve la lista completa de empleados
         public async Task<List<Empleado>> GetEmpleadosAsync() =>
             await _db.Empleados.AsNoTracking().ToListAsync();
 
+        // Registra un empleado nuevo generando su código W-000001
         public async Task AgregarEmpleadoAsync(Empleado empleado)
         {
             _db.ChangeTracker.Clear();
@@ -127,6 +141,7 @@ namespace GymSaturno.Repositories
             _db.ChangeTracker.Clear();
         }
 
+        // Elimina un empleado únicamente si no tiene ventas ni pagos registrados en el historial
         public async Task EliminarEmpleadoAsync(int id)
         {
             _db.ChangeTracker.Clear();
@@ -146,6 +161,7 @@ namespace GymSaturno.Repositories
         }
 
         // --- MEMBRESÍAS Y PAGOS ---
+        // Obtiene las membresías con datos de Socio y Empleado, ordenadas por fecha más próxima a vencer
         public async Task<List<Membresia>> GetMembresiasAsync()
         {
             return await _db.Membresias
@@ -156,6 +172,7 @@ namespace GymSaturno.Repositories
                 .ToListAsync();
         }
 
+        // Guarda al mismo tiempo la membresía vendida y el recibo de pago con folio F-0000000001
         public async Task RegistrarVentaMembresiaAsync(Membresia membresia, Pago pago)
         {
             _db.ChangeTracker.Clear();
@@ -170,6 +187,7 @@ namespace GymSaturno.Repositories
             _db.ChangeTracker.Clear();
         }
 
+        // Extiende la vigencia de una membresía sumando los meses del nuevo plan contratado
         public async Task RenovarMembresiaAsync(int membresiaId, string nuevoPlan)
         {
             _db.ChangeTracker.Clear();
@@ -183,6 +201,7 @@ namespace GymSaturno.Repositories
                     _ => 1
                 };
 
+                // Si aún está vigente suma desde su fecha de vencimiento; si ya venció, suma desde hoy
                 DateTime baseFecha = mem.FechaVencimiento.Date >= DateTime.Today
                     ? mem.FechaVencimiento.Date
                     : DateTime.Today;
@@ -195,6 +214,7 @@ namespace GymSaturno.Repositories
             }
         }
 
+        // Consulta todos los pagos con los datos del socio y del empleado, del más reciente al más antiguo
         public async Task<List<Pago>> GetPagosAsync()
         {
             return await _db.Pagos
@@ -205,6 +225,7 @@ namespace GymSaturno.Repositories
                 .ToListAsync();
         }
 
+        // Suma el abono al total pagado, lo resta del saldo pendiente y actualiza fecha/hora y empleado
         public async Task RegistrarAbonoPagoAsync(int pagoId, decimal montoAbono, int empleadoId)
         {
             _db.ChangeTracker.Clear();
@@ -221,6 +242,7 @@ namespace GymSaturno.Repositories
         }
 
         // --- ASISTENCIAS ---
+        // Trae la bitácora de asistencias junto con los datos del socio y sus membresías (.ThenInclude)
         public async Task<List<Asistencia>> GetAsistenciasAsync()
         {
             return await _db.Asistencias
@@ -231,6 +253,7 @@ namespace GymSaturno.Repositories
                 .ToListAsync();
         }
 
+        // Inserta un nuevo registro de entrada en la tabla Asistencias
         public async Task RegistrarAsistenciaAsync(Asistencia asistencia)
         {
             _db.ChangeTracker.Clear();
