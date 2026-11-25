@@ -83,9 +83,12 @@ namespace GymSaturno.Repositories
         }
 
         // --- ENTRENADORES Y EMPLEADOS ---
-        // Devuelve la lista de entrenadores sin rastreo en memoria
+        // Trae los entrenadores junto con su lista de socios (.Include) para poder contarlos
         public async Task<List<Entrenador>> GetEntrenadoresAsync() =>
-            await _db.Entrenadores.AsNoTracking().ToListAsync();
+            await _db.Entrenadores
+                .AsNoTracking()
+                .Include(e => e.Socios)
+                .ToListAsync();
 
         // Guarda un entrenador nuevo asignándole su código consecutivo C-000001
         public async Task AgregarEntrenadorAsync(Entrenador entrenador)
